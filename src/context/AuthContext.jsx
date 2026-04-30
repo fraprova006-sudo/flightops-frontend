@@ -1,4 +1,3 @@
-// frontend/src/context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 
@@ -12,16 +11,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // Recupera profilo utente dal token (decode locale)
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp * 1000 > Date.now()) {
-          setUser(JSON.parse(localStorage.getItem('fo_user')));
-        } else {
+      const savedUser = localStorage.getItem('fo_user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
           logout();
         }
-      } catch {
-        logout();
       }
     }
     setLoading(false);

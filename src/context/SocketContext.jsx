@@ -1,4 +1,3 @@
-// frontend/src/context/SocketContext.jsx
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
@@ -21,7 +20,6 @@ export const SocketProvider = ({ children }) => {
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
-
     socketRef.current = socket;
 
     return () => {

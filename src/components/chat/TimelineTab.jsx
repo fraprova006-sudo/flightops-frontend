@@ -1,29 +1,47 @@
-// frontend/src/components/chat/TimelineTab.jsx
 import { useState, useEffect } from 'react';
 import { apiClient } from '../../api/client';
 
-const TIMELINE_BUTTONS = [
-  { id: 'preboarding_start', label: 'Preimbarco', icon: '🚶', phase: 'start' },
-  { id: 'preboarding_end',   label: 'Preimbarco', icon: '🚶', phase: 'end' },
-  { id: 'boarding_start',    label: 'Imbarco',    icon: '✈️', phase: 'start' },
-  { id: 'boarding_end',      label: 'Imbarco',    icon: '✈️', phase: 'end' },
-  { id: 'fuel_start',        label: 'Carburante', icon: '⛽', phase: 'start' },
-  { id: 'fuel_end',          label: 'Carburante', icon: '⛽', phase: 'end' },
-  { id: 'loading_start',     label: 'Loading',    icon: '📦', phase: 'start' },
-  { id: 'loading_end',       label: 'Loading',    icon: '📦', phase: 'end' },
-  { id: 'cleaning_start',    label: 'Pulizie',    icon: '🧹', phase: 'start' },
-  { id: 'cleaning_end',      label: 'Pulizie',    icon: '🧹', phase: 'end' },
-  { id: 'prm_start',         label: 'PRM',        icon: '♿', phase: 'start' },
-  { id: 'prm_end',           label: 'PRM',        icon: '♿', phase: 'end' },
-  { id: 'prm_ok',            label: 'PRM OK',     icon: '✅', phase: 'ok' },
-  { id: 'deicing_start',     label: 'De-icing',   icon: '❄️', phase: 'start' },
-  { id: 'deicing_end',       label: 'De-icing',   icon: '❄️', phase: 'end' },
-  { id: 'doors_closed',      label: 'Porte Chiuse', icon: '🚪', phase: 'final' },
+const GROUPS = [
+  {
+    label: 'Passeggeri',
+    items: [
+      { id: 'preboarding_start', label: 'Preimbarco', phase: 'Start' },
+      { id: 'preboarding_end',   label: 'Preimbarco', phase: 'End' },
+      { id: 'boarding_start',    label: 'Imbarco',    phase: 'Start' },
+      { id: 'boarding_end',      label: 'Imbarco',    phase: 'End' },
+    ],
+  },
+  {
+    label: 'Operazioni',
+    items: [
+      { id: 'fuel_start',      label: 'Carburante', phase: 'Start' },
+      { id: 'fuel_end',        label: 'Carburante', phase: 'End' },
+      { id: 'loading_start',   label: 'Loading',    phase: 'Start' },
+      { id: 'loading_end',     label: 'Loading',    phase: 'End' },
+      { id: 'cleaning_start',  label: 'Pulizie',    phase: 'Start' },
+      { id: 'cleaning_end',    label: 'Pulizie',    phase: 'End' },
+    ],
+  },
+  {
+    label: 'PRM',
+    items: [
+      { id: 'prm_start', label: 'PRM', phase: 'Start' },
+      { id: 'prm_end',   label: 'PRM', phase: 'End' },
+      { id: 'prm_ok',    label: 'PRM OK', phase: '' },
+    ],
+  },
+  {
+    label: 'Speciali',
+    items: [
+      { id: 'deicing_start', label: 'De-icing', phase: 'Start' },
+      { id: 'deicing_end',   label: 'De-icing', phase: 'End' },
+      { id: 'doors_closed',  label: 'Porte Chiuse', phase: '' },
+    ],
+  },
 ];
 
 export default function TimelineTab({ flight, socket }) {
   const [events, setEvents] = useState([]);
-  const [firing, setFiring] = useState(null);
 
   useEffect(() => {
     apiClient.get(`/chat/${flight.id}/timeline`).then(res => setEvents(res.data));
@@ -38,53 +56,36 @@ export default function TimelineTab({ flight, socket }) {
     return () => socket.off('timeline:updated', handler);
   }, [socket]);
 
-  const triggerEvent = async (eventId) => {
-    setFiring(eventId);
-    socket.emit('timeline:event', { flightId: flight.id, eventType: eventId });
-    setTimeout(() => setFiring(null), 1000);
+  const isTriggered = (id) => events.some(e => e.event_type === id);
+  const getTime = (id) => {
+    const ev = events.find(e => e.event_type === id);
+    return ev ? new Date(ev.triggered_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null;
   };
 
-  const isTriggered = (eventId) => events.some(e => e.event_type === eventId);
-
-  const getTimestamp = (eventId) => {
-    const ev = events.find(e => e.event_type === eventId);
-    if (!ev) return null;
-    return new Date(ev.triggered_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const trigger = (id) => {
+    if (!socket || isTriggered(id)) return;
+    socket.emit('timeline:event', { flightId: flight.id, eventType: id });
   };
-
-  // Raggruppa per categoria
-  const groups = [
-    { label: 'Passeggeri', items: ['preboarding_start', 'preboarding_end', 'boarding_start', 'boarding_end'] },
-    { label: 'Operazioni', items: ['fuel_start', 'fuel_end', 'loading_start', 'loading_end', 'cleaning_start', 'cleaning_end'] },
-    { label: 'PRM', items: ['prm_start', 'prm_end', 'prm_ok'] },
-    { label: 'Speciali', items: ['deicing_start', 'deicing_end', 'doors_closed'] },
-  ];
 
   return (
-    <div className="timeline-tab">
-      {groups.map(group => (
-        <div key={group.label} className="timeline-group">
-          <div className="timeline-group-label">{group.label}</div>
-          <div className="timeline-buttons">
-            {group.items.map(eventId => {
-              const btn = TIMELINE_BUTTONS.find(b => b.id === eventId);
-              const triggered = isTriggered(eventId);
-              const ts = getTimestamp(eventId);
+    <div style={styles.container}>
+      {GROUPS.map(group => (
+        <div key={group.label} style={styles.group}>
+          <div style={styles.groupLabel}>{group.label}</div>
+          <div style={styles.buttons}>
+            {group.items.map(item => {
+              const triggered = isTriggered(item.id);
+              const time = getTime(item.id);
               return (
                 <button
-                  key={eventId}
-                  className={`timeline-btn ${triggered ? 'triggered' : ''} phase-${btn.phase}`}
-                  onClick={() => !triggered && triggerEvent(eventId)}
-                  disabled={triggered || firing === eventId}
+                  key={item.id}
+                  style={{ ...styles.btn, ...(triggered ? styles.btnDone : styles.btnPending) }}
+                  onClick={() => trigger(item.id)}
+                  disabled={triggered}
                 >
-                  <span className="btn-icon">{btn.icon}</span>
-                  <span className="btn-text">
-                    {btn.label}
-                    {btn.phase !== 'ok' && btn.phase !== 'final' && (
-                      <em>{btn.phase === 'start' ? ' Start' : ' End'}</em>
-                    )}
-                  </span>
-                  {ts && <span className="btn-time">{ts}</span>}
+                  <span style={styles.btnLabel}>{item.label}{item.phase ? ` ${item.phase}` : ''}</span>
+                  {time && <span style={styles.btnTime}>{time}</span>}
+                  {triggered && <span style={styles.check}>✓</span>}
                 </button>
               );
             })}
@@ -94,3 +95,16 @@ export default function TimelineTab({ flight, socket }) {
     </div>
   );
 }
+
+const styles = {
+  container: { flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 20 },
+  group: {},
+  groupLabel: { fontSize: 11, color: '#475569', fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 },
+  buttons: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  btn: { border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s' },
+  btnPending: { background: '#0f172a', color: '#94a3b8', border: '1px solid #334155' },
+  btnDone: { background: '#1a2e1a', color: '#4ade80', border: '1px solid #166534', cursor: 'default' },
+  btnLabel: {},
+  btnTime: { fontSize: 11, opacity: 0.8 },
+  check: { fontSize: 12 },
+};
