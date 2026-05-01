@@ -12,11 +12,13 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (!token) return;
+    if (socketRef.current?.connected) return;
 
     const s = io(import.meta.env.VITE_API_URL, {
       auth: { token },
       reconnection: true,
-      reconnectionDelay: 1000,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 10,
       transports: ['websocket', 'polling'],
     });
 
@@ -31,7 +33,7 @@ export const SocketProvider = ({ children }) => {
     });
 
     s.on('connect_error', (err) => {
-      console.error('[Socket] errore connessione:', err.message);
+      console.error('[Socket] errore:', err.message);
     });
 
     socketRef.current = s;
@@ -41,6 +43,7 @@ export const SocketProvider = ({ children }) => {
       s.disconnect();
       socketRef.current = null;
       setSocket(null);
+      setConnected(false);
     };
   }, [token]);
 
