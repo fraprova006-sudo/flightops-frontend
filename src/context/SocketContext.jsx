@@ -8,28 +8,44 @@ export const SocketProvider = ({ children }) => {
   const { token } = useAuth();
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
+  const [socket, setSocket] = useState(null);
 
   useEffect(() => {
     if (!token) return;
 
-    const socket = io(import.meta.env.VITE_API_URL, {
+    const s = io(import.meta.env.VITE_API_URL, {
       auth: { token },
       reconnection: true,
       reconnectionDelay: 1000,
+      transports: ['websocket', 'polling'],
     });
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
-    socketRef.current = socket;
+    s.on('connect', () => {
+      setConnected(true);
+      console.log('[Socket] connesso');
+    });
+
+    s.on('disconnect', () => {
+      setConnected(false);
+      console.log('[Socket] disconnesso');
+    });
+
+    s.on('connect_error', (err) => {
+      console.error('[Socket] errore connessione:', err.message);
+    });
+
+    socketRef.current = s;
+    setSocket(s);
 
     return () => {
-      socket.disconnect();
+      s.disconnect();
       socketRef.current = null;
+      setSocket(null);
     };
   }, [token]);
 
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current, connected }}>
+    <SocketContext.Provider value={{ socket, connected }}>
       {children}
     </SocketContext.Provider>
   );
