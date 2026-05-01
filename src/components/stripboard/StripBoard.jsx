@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '../../api/client';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { SUPERVISOR_ROLES } from '../../utils/roles';
 import FlightStrip from './FlightStrip';
 import AssignModal from './AssignModal';
 import FlightChat from '../chat/FlightChat';
@@ -15,11 +16,22 @@ export default function StripBoard() {
   const [loading, setLoading] = useState(true);
 
   const today = new Date().toISOString().split('T')[0];
+  const isSupervisor = SUPERVISOR_ROLES.includes(user?.role);
 
   const loadFlights = async () => {
     try {
       const res = await apiClient.get(`/flights?date=${today}`);
-      setFlights(res.data);
+      let allFlights = res.data;
+
+      // Se non è supervisore, mostra solo i voli a cui è assegnato
+      if (!isSupervisor) {
+        allFlights = allFlights.filter(flight => {
+          const assignments = flight.assignments || {};
+          return Object.values(assignments).some(a => a.userId === user?.id);
+        });
+      }
+
+      setFlights(allFlights);
     } catch (err) {
       console.error(err);
     } finally {
@@ -55,10 +67,10 @@ export default function StripBoard() {
 
       <div style={styles.body}>
         <div style={styles.toolbar}>
-          <h2 style={styles.toolbarTitle}>Strip Board — {flights.length} voli oggi</h2>
-          {canAssign && (
-            <button onClick={loadFlights} style={styles.refreshBtn}>↻ Aggiorna</button>
-          )}
+          <h2 style={styles.toolbarTitle}>
+            {isSupervisor ? `Strip Board — ${flights.length} voli oggi` : `I miei voli — ${flights.length}`}
+          </h2>
+          <button onClick={loadFlights} style={styles.refreshBtn}>↻ Aggiorna</button>
         </div>
 
         {loading ? (
@@ -66,7 +78,7 @@ export default function StripBoard() {
         ) : flights.length === 0 ? (
           <div style={styles.empty}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>✈</div>
-            <div>Nessun volo programmato per oggi</div>
+            <div>{isSupervisor ? 'Nessun volo programmato per oggi' : 'Nessun volo assegnato'}</div>
           </div>
         ) : (
           <div style={styles.strips}>
