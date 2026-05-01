@@ -14,6 +14,7 @@ export default function StripBoard() {
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [assignFlight, setAssignFlight] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [unread, setUnread] = useState({});
 
   const today = new Date().toISOString().split('T')[0];
   const isSupervisor = SUPERVISOR_ROLES.includes(user?.role);
@@ -22,15 +23,12 @@ export default function StripBoard() {
     try {
       const res = await apiClient.get(`/flights?date=${today}`);
       let allFlights = res.data;
-
-      // Se non è supervisore, mostra solo i voli a cui è assegnato
       if (!isSupervisor) {
         allFlights = allFlights.filter(flight => {
           const assignments = flight.assignments || {};
           return Object.values(assignments).some(a => a.userId === user?.id);
         });
       }
-
       setFlights(allFlights);
     } catch (err) {
       console.error(err);
@@ -39,15 +37,34 @@ export default function StripBoard() {
     }
   };
 
-  useEffect(() => {
-    loadFlights();
-  }, []);
+  useEffect(() => { loadFlights(); }, []);
 
   useEffect(() => {
     if (!socket) return;
+
     socket.on('flight:updated', () => loadFlights());
-    return () => socket.off('flight:updated');
-  }, [socket]);
+
+    socket.on('chat:message', (msg) => {
+      const flightId = msg.flight_id;
+      if (!flightId || msg.sender_id === user?.id) return;
+      setSelectedFlight(current => {
+        if (current?.id !== flightId) {
+          setUnread(prev => ({ ...prev, [flightId]: (prev[flightId] || 0) + 1 }));
+        }
+        return current;
+      });
+    });
+
+    return () => {
+      socket.off('flight:updated');
+      socket.off('chat:message');
+    };
+  }, [socket, user?.id]);
+
+  const openFlight = (flight) => {
+    setSelectedFlight(flight);
+    setUnread(prev => ({ ...prev, [flight.id]: 0 }));
+  };
 
   const canAssign = ['COS', 'Responsabile'].includes(user?.role);
 
@@ -86,8 +103,9 @@ export default function StripBoard() {
               <FlightStrip
                 key={flight.id}
                 flight={flight}
-                onOpen={() => setSelectedFlight(flight)}
+                onOpen={() => openFlight(flight)}
                 onAssign={canAssign ? () => setAssignFlight(flight) : null}
+                unreadCount={unread[flight.id] || 0}
               />
             ))}
           </div>
@@ -95,10 +113,7 @@ export default function StripBoard() {
       </div>
 
       {selectedFlight && (
-        <FlightChat
-          flight={selectedFlight}
-          onClose={() => setSelectedFlight(null)}
-        />
+        <FlightChat flight={selectedFlight} onClose={() => setSelectedFlight(null)} />
       )}
 
       {assignFlight && (
@@ -114,14 +129,7 @@ export default function StripBoard() {
 
 const styles = {
   page: { minHeight: '100vh', background: '#0f172a', fontFamily: 'system-ui, sans-serif', color: '#f1f5f9' },
-  header: {
-    background: '#1e293b',
-    borderBottom: '1px solid #334155',
-    padding: '12px 24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  header: { background: '#1e293b', borderBottom: '1px solid #334155', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 16 },
   logo: { fontSize: 20, fontWeight: 700, color: '#3b82f6' },
   date: { color: '#64748b', fontSize: 13 },

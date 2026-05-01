@@ -9,15 +9,16 @@ const STATUS = {
   diverted:  { label: 'Dirottato',   color: '#a855f7' },
 };
 
-export default function FlightStrip({ flight, onOpen, onAssign }) {
+export default function FlightStrip({ flight, onOpen, onAssign, unreadCount = 0 }) {
   const status = STATUS[flight.status] || STATUS.scheduled;
   const isDelayed = flight.delay_minutes > 0;
   const isRyanair = flight.airline_code === 'FR';
+  const hasUnread = unreadCount > 0;
 
   const time = (t) => t ? new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '–';
 
   return (
-    <div style={{ ...styles.strip, borderLeftColor: status.color }} onClick={onOpen}>
+    <div style={{ ...styles.strip, borderLeftColor: status.color, background: hasUnread ? '#1a2436' : '#1e293b' }} onClick={onOpen}>
       <div style={styles.col1}>
         <div style={styles.flightNum}>
           {flight.flight_number}
@@ -64,7 +65,12 @@ export default function FlightStrip({ flight, onOpen, onAssign }) {
           {status.label}
         </div>
         <div style={styles.actions}>
-          <button style={styles.chatBtn} onClick={e => { e.stopPropagation(); onOpen(); }}>💬 Chat</button>
+          <button style={{ ...styles.chatBtn, position: 'relative' }} onClick={e => { e.stopPropagation(); onOpen(); }}>
+            💬 Chat
+            {hasUnread && (
+              <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </button>
           {onAssign && (
             <button style={styles.assignBtn} onClick={e => { e.stopPropagation(); onAssign(); }}>👤 Assegna</button>
           )}
@@ -111,4 +117,19 @@ const styles = {
   actions: { display: 'flex', gap: 6 },
   chatBtn: { background: '#1e3a5f', border: 'none', borderRadius: 6, color: '#60a5fa', padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
   assignBtn: { background: '#1a2e1a', border: 'none', borderRadius: 6, color: '#4ade80', padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    background: '#ef4444',
+    color: 'white',
+    borderRadius: '50%',
+    width: 18,
+    height: 18,
+    fontSize: 10,
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 };
