@@ -15,6 +15,7 @@ export default function StripBoard() {
   const [assignFlight, setAssignFlight] = useState(null);
   const [loading, setLoading] = useState(true);
   const [unread, setUnread] = useState({});
+  const [lastMessages, setLastMessages] = useState({});
 
   const today = new Date().toISOString().split('T')[0];
   const isSupervisor = SUPERVISOR_ROLES.includes(user?.role);
@@ -49,6 +50,7 @@ export default function StripBoard() {
       setSelectedFlight(current => {
         if (current?.id !== flightId) {
           setUnread(prev => ({ ...prev, [flightId]: (prev[flightId] || 0) + 1 }));
+          setLastMessages(prev => ({ ...prev, [flightId]: msg }));
         }
         return current;
       });
@@ -63,6 +65,7 @@ export default function StripBoard() {
   const openFlight = (flight) => {
     setSelectedFlight(flight);
     setUnread(prev => ({ ...prev, [flight.id]: 0 }));
+    setLastMessages(prev => ({ ...prev, [flight.id]: null }));
   };
 
   const canAssign = ['COS', 'Responsabile'].includes(user?.role);
@@ -105,6 +108,7 @@ export default function StripBoard() {
                 onOpen={() => openFlight(flight)}
                 onAssign={canAssign ? () => setAssignFlight(flight) : null}
                 unreadCount={unread[flight.id] || 0}
+                lastMessage={lastMessages[flight.id] || null}
               />
             ))}
           </div>
@@ -140,6 +144,6 @@ const styles = {
   toolbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   toolbarTitle: { fontSize: 16, fontWeight: 600, color: '#94a3b8', margin: 0 },
   refreshBtn: { background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#94a3b8', padding: '6px 14px', cursor: 'pointer', fontSize: 13 },
-  strips: { display: 'flex', flexDirection: 'column', gap: 8 },
+  strips: { display: 'flex', flexDirection: 'column', gap: 40 },
   empty: { textAlign: 'center', color: '#475569', padding: '80px 0', fontSize: 15 },
 };

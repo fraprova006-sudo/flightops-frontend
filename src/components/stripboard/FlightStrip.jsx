@@ -1,5 +1,22 @@
 import { ROLE_COLORS } from '../../utils/roles';
 
+// Animazione lampeggio
+if (typeof document !== 'undefined' && !document.getElementById('strip-anim')) {
+  const style = document.createElement('style');
+  style.id = 'strip-anim';
+  style.textContent = `
+    @keyframes pulse-strip {
+      0%, 100% { border-left-color: #ef4444; box-shadow: -2px 0 12px rgba(239,68,68,0.5); }
+      50% { border-left-color: #ff6b6b; box-shadow: -2px 0 20px rgba(239,68,68,0.8); }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 const STATUS = {
   scheduled: { label: 'Programmato', color: '#64748b' },
   boarding:  { label: 'Imbarco',     color: '#f59e0b' },
@@ -9,7 +26,7 @@ const STATUS = {
   diverted:  { label: 'Dirottato',   color: '#a855f7' },
 };
 
-export default function FlightStrip({ flight, onOpen, onAssign, unreadCount = 0 }) {
+export default function FlightStrip({ flight, onOpen, onAssign, unreadCount = 0, lastMessage = null }) {
   const status = STATUS[flight.status] || STATUS.scheduled;
   const isDelayed = flight.delay_minutes > 0;
   const isRyanair = flight.airline_code === 'FR';
@@ -18,7 +35,23 @@ export default function FlightStrip({ flight, onOpen, onAssign, unreadCount = 0 
   const time = (t) => t ? new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '–';
 
   return (
-    <div style={{ ...styles.strip, borderLeftColor: status.color, background: hasUnread ? '#1a2436' : '#1e293b' }} onClick={onOpen}>
+    <div style={{
+      ...styles.strip,
+      borderLeftColor: hasUnread ? '#ef4444' : status.color,
+      animation: hasUnread ? 'pulse-strip 1.5s ease-in-out infinite' : 'none',
+    }} onClick={onOpen}>
+
+      {/* Banner messaggio non letto */}
+      {hasUnread && lastMessage && (
+        <div style={styles.unreadBanner}>
+          <span style={styles.unreadIcon}>💬</span>
+          <span style={styles.unreadText}>
+            <strong>{lastMessage.sender_name}</strong>: {lastMessage.content.length > 50 ? lastMessage.content.slice(0, 50) + '…' : lastMessage.content}
+          </span>
+          <span style={styles.unreadBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+        </div>
+      )}
+
       <div style={styles.col1}>
         <div style={styles.flightNum}>
           {flight.flight_number}
@@ -65,11 +98,10 @@ export default function FlightStrip({ flight, onOpen, onAssign, unreadCount = 0 
           {status.label}
         </div>
         <div style={styles.actions}>
-          <button style={{ ...styles.chatBtn, position: 'relative' }} onClick={e => { e.stopPropagation(); onOpen(); }}>
+          <button style={{ ...styles.chatBtn, background: hasUnread ? 'rgba(239,68,68,0.2)' : '#1e3a5f', color: hasUnread ? '#ef4444' : '#60a5fa', position: 'relative' }}
+            onClick={e => { e.stopPropagation(); onOpen(); }}>
             💬 Chat
-            {hasUnread && (
-              <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
-            )}
+            {hasUnread && <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>
           {onAssign && (
             <button style={styles.assignBtn} onClick={e => { e.stopPropagation(); onAssign(); }}>👤 Assegna</button>
@@ -93,7 +125,27 @@ const styles = {
     gap: 16,
     cursor: 'pointer',
     transition: 'background 0.15s',
+    position: 'relative',
+    overflow: 'visible',
   },
+  unreadBanner: {
+    position: 'absolute',
+    top: -32,
+    left: 0,
+    right: 0,
+    background: 'linear-gradient(90deg, #7f1d1d, #991b1b)',
+    border: '1px solid #ef4444',
+    borderRadius: '8px 8px 0 0',
+    padding: '5px 14px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    animation: 'fade-in 0.3s ease',
+    zIndex: 1,
+  },
+  unreadIcon: { fontSize: 13 },
+  unreadText: { flex: 1, fontSize: 12, color: '#fca5a5', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
+  unreadBadge: { background: '#ef4444', color: 'white', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700, flexShrink: 0 },
   col1: { display: 'flex', flexDirection: 'column', gap: 6 },
   flightNum: { fontSize: 18, fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 6 },
   frBadge: { background: '#1e3a5f', color: '#60a5fa', fontSize: 10, padding: '1px 5px', borderRadius: 4, fontWeight: 600 },
@@ -115,21 +167,7 @@ const styles = {
   col6: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' },
   statusBadge: { fontSize: 12, fontWeight: 600, border: '1px solid', borderRadius: 6, padding: '3px 10px' },
   actions: { display: 'flex', gap: 6 },
-  chatBtn: { background: '#1e3a5f', border: 'none', borderRadius: 6, color: '#60a5fa', padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
+  chatBtn: { background: '#1e3a5f', border: 'none', borderRadius: 6, color: '#60a5fa', padding: '5px 10px', cursor: 'pointer', fontSize: 12, position: 'relative' },
   assignBtn: { background: '#1a2e1a', border: 'none', borderRadius: 6, color: '#4ade80', padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    background: '#ef4444',
-    color: 'white',
-    borderRadius: '50%',
-    width: 18,
-    height: 18,
-    fontSize: 10,
-    fontWeight: 700,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  badge: { position: 'absolute', top: -6, right: -6, background: '#ef4444', color: 'white', borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' },
 };
