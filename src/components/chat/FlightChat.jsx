@@ -14,26 +14,40 @@ export default function FlightChat({ flight, onClose }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef(null);
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     if (!flight?.id) return;
     apiClient.get(`/chat/${flight.id}`).then(res => {
       setMessages(res.data);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, [flight?.id]);
 
   useEffect(() => {
     if (!socket || !flight?.id) return;
-    socket.emit('flight:join', { flightId: flight.id });
+
+    if (!joinedRef.current) {
+      socket.emit('flight:join', { flightId: flight.id });
+      joinedRef.current = true;
+    }
+
     const handler = (msg) => {
-      setMessages(prev => [...prev, msg]);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      if (msg.flight_id === flight.id || !msg.flight_id) {
+        setMessages(prev => {
+          // Evita duplicati
+          if (prev.find(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      }
     };
+
     socket.on('chat:message', handler);
     return () => {
       socket.off('chat:message', handler);
       socket.emit('flight:leave', { flightId: flight.id });
+      joinedRef.current = false;
     };
   }, [socket, flight?.id]);
 
@@ -115,7 +129,7 @@ export default function FlightChat({ flight, onClose }) {
 const styles = {
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 },
   panel: { background: '#1e293b', borderRadius: 16, width: '100%', maxWidth: 600, height: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' },
-  header: { padding: '16px 20px', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 16 },
+  header: { padding: '16px 20px', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 },
   flightInfo: { display: 'flex', flexDirection: 'column', gap: 2, flex: 1 },
   flightNum: { fontSize: 18, fontWeight: 700, color: '#f1f5f9' },
   flightMeta: { fontSize: 12, color: '#64748b' },
@@ -133,7 +147,7 @@ const styles = {
   msgSender: { fontSize: 10, color: '#64748b', fontWeight: 500 },
   msgContent: { fontSize: 14, color: '#e2e8f0', lineHeight: 1.5 },
   msgTime: { fontSize: 10, color: '#475569', alignSelf: 'flex-end' },
-  inputBar: { padding: '12px 20px', borderTop: '1px solid #334155', display: 'flex', gap: 8 },
+  inputBar: { padding: '12px 20px', borderTop: '1px solid #334155', display: 'flex', gap: 8, flexShrink: 0 },
   input: { flex: 1, background: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '10px 14px', color: '#f1f5f9', fontSize: 14, outline: 'none' },
   sendBtn: { background: '#3b82f6', border: 'none', borderRadius: 8, color: 'white', padding: '10px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
 };
