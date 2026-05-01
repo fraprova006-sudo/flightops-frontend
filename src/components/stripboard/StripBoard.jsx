@@ -38,22 +38,14 @@ export default function StripBoard() {
   };
 
   useEffect(() => { loadFlights(); }, []);
-// Dopo loadFlights, aggiungi questo useEffect:
-useEffect(() => {
-  if (!socket || flights.length === 0) return;
-  flights.forEach(f => {
-    socket.emit('flight:join', { flightId: f.id });
-  });
-}, [socket, flights]);
 
   useEffect(() => {
     if (!socket) return;
 
     socket.on('flight:updated', () => loadFlights());
 
-    socket.on('chat:message', (msg) => {
-      const flightId = msg.flight_id;
-      if (!flightId || msg.sender_id === user?.id) return;
+    socket.on('chat:notification', ({ flightId, msg }) => {
+      if (msg.sender_id === user?.id) return;
       setSelectedFlight(current => {
         if (current?.id !== flightId) {
           setUnread(prev => ({ ...prev, [flightId]: (prev[flightId] || 0) + 1 }));
@@ -64,7 +56,7 @@ useEffect(() => {
 
     return () => {
       socket.off('flight:updated');
-      socket.off('chat:message');
+      socket.off('chat:notification');
     };
   }, [socket, user?.id]);
 
