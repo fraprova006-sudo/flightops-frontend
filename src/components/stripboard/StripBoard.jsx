@@ -38,6 +38,13 @@ export default function StripBoard() {
   };
 
   useEffect(() => { loadFlights(); }, []);
+// Dopo loadFlights, aggiungi questo useEffect:
+useEffect(() => {
+  if (!socket || flights.length === 0) return;
+  flights.forEach(f => {
+    socket.emit('flight:join', { flightId: f.id });
+  });
+}, [socket, flights]);
 
   useEffect(() => {
     if (!socket) return;
